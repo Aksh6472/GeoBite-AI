@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --color-navy-50: #eef3f9;
+  --color-navy-100: #d6e1ef;
+  --color-navy-200: #aec3de;
+  --color-navy-300: #7f9dc6;
+  --color-navy-400: #5276a8;
+  --color-navy-500: #34598c;
+  --color-navy-600: #244572;
+  --color-navy-700: #1b365c;
+  --color-navy-800: #142a4a;
+  --color-navy-900: #0e1f38;
+  --color-navy-950: #091427;
+
+  --color-teal-50: #ecf8f6;
+  --color-teal-100: #cfeee9;
+  --color-teal-500: #1a9a8a;
+  --color-teal-600: #12806f;
+  --color-teal-700: #0f665a;
+
+  --color-sage-50: #f0f5f1;
+  --color-sage-100: #dbe8de;
+  --color-sage-500: #5b8a68;
+  --color-sage-600: #4a7356;
+
+  --color-canvas: #f4f6f9;
+  --color-line: #e2e7ee;
+  --color-ink: #0f1b2d;
+  --color-muted: #5a6b80;
+
+  --color-alert-orange: #d9701c;
+  --color-alert-red: #c0392b;
+
+  --shadow-card: 0 1px 2px rgb(14 31 56 / 0.04), 0 4px 16px rgb(14 31 56 / 0.05);
+  --radius-card: 14px;
+}
+
+html { color-scheme: light; }
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Leaflet polish */
+.leaflet-container { font-family: var(--font-sans); background: #e9eef3; }
+.leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: var(--shadow-card); }
+.leaflet-popup-content { margin: 12px 14px; font-size: 12.5px; line-height: 1.45; }
+.leaflet-control-attribution { font-size: 10px; }
+/* Soften standard OSM tiles so data layers stand out (muted, medical-dashboard basemap) */
+.geobite-tiles { filter: saturate(0.35) brightness(1.04) contrast(0.92); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

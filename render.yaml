@@ -1,0 +1,37 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# One web service (Next.js + FastAPI in one container) + a managed PostgreSQL database.
+databases:
+  - name: geobite-db
+    databaseName: geobite
+    user: geobite
+    plan: free            # free Postgres expires after 30 days; upgrade to basic-256mb to keep data
+    region: singapore
+
+services:
+  - type: web
+    name: geobite-ai
+    runtime: docker
+    plan: free            # free instances sleep after 15 min idle (first request then takes ~1 min)
+    region: singapore
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: geobite-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: IP_HASH_SALT
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: SEED_ON_START
+        value: "true"     # loads the labelled synthetic demo data once (skipped if data exists)
+      - key: CORS_ORIGINS
+        value: https://geobite-ai.onrender.com

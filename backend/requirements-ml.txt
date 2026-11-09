@@ -1,0 +1,3 @@
+# Optional computer-vision module (dog detection in field-survey photos). Large download (~2 GB with torch).
+-r requirements.txt
+ultralytics>=8.2

@@ -1,0 +1,44 @@
+# GeoBite-AI - local / demo stack: PostGIS + FastAPI + Next.js
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: geobite
+      POSTGRES_USER: geobite
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geobite_dev_password}
+    ports: ["5433:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geobite -d geobite"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://geobite:${POSTGRES_PASSWORD:-geobite_dev_password}@db:5432/geobite
+      JWT_SECRET: ${JWT_SECRET:-CHANGE-ME-dev-only-secret-0123456789abcdef}
+      IP_HASH_SALT: ${IP_HASH_SALT:-CHANGE-ME-ip-salt}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      CORS_ORIGINS: http://localhost:3000
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SEED_ON_START: ${SEED_ON_START:-true}
+    depends_on:
+      db: {condition: service_healthy}
+    ports: ["8010:8000"]
+    volumes: [uploads:/app/uploads]
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        API_INTERNAL_URL: http://api:8000
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    depends_on: [api]
+    ports: ["3000:3000"]
+
+volumes:
+  pgdata:
+  uploads:

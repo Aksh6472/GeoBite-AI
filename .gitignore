@@ -1,0 +1,14 @@
+.env
+backend/.env
+backend/.venv/
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/*.db
+__pycache__/
+.pytest_cache/
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+.DS_Store
+.playwright-cli/
+*.log
