@@ -371,15 +371,13 @@ def progress_alerts(db, users):
     audit.log(db, actor=admin, action="status_change", entity_type="alert", entity_id=closed.id, changes={"status": {"from": "action_completed", "to": "closed"}}, reason=closed.closure_notes)
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--reset", action="store_true")
-    args = ap.parse_args()
+def seed(wipe: bool = False) -> bool:
+    """Load the synthetic demo data. Returns False (and changes nothing) when data already exists."""
     with SessionLocal() as db:
         if db.scalar(select(Role.id).limit(1)):
-            if not args.reset:
+            if not wipe:
                 print("Database already seeded. Use --reset to wipe and re-seed.")
-                return
+                return False
             reset(db)
         districts, wards = seed_geography(db)
         hospitals, users = seed_people(db, districts)
@@ -410,6 +408,13 @@ def main():
         print("\nFacility access codes (for hospital staff self-registration):")
         for h, _, code in hospitals:
             print(f"  {code}  {h.name}")
+    return True
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--reset", action="store_true")
+    seed(wipe=ap.parse_args().reset)
 
 
 if __name__ == "__main__":

@@ -1,14 +1,17 @@
+import hashlib
+import hmac
 import logging
 import time
 import uuid
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from .config import get_settings
+from . import database
 from .database import SessionLocal, has_postgis
 from .routers import admin, alerts, analytics, auth, community, dashboard, hospital, map, meta, vaccination
 
@@ -73,3 +76,29 @@ def health():
     except Exception:
         db_ok = False
     return {"status": "ok" if db_ok else "degraded", "database": "ok" if db_ok else "unreachable", "backend": "postgresql" if settings.is_postgres else "sqlite", "postgis": has_postgis(), "environment": settings.environment}
+
+
+def bootstrap_token() -> str:
+    return hmac.new(settings.jwt_secret.encode(), b"geobite-bootstrap", hashlib.sha256).hexdigest()
+
+
+@app.post("/api/system/bootstrap", tags=["system"], include_in_schema=False)
+def bootstrap(x_bootstrap_token: str = Header(default="")):
+    """Apply migrations and load the synthetic demo data on hosts where no shell is available
+    (e.g. Vercel). Authorised by a token derived from JWT_SECRET; both steps are idempotent."""
+    if not settings.is_postgres or not hmac.compare_digest(x_bootstrap_token, bootstrap_token()):
+        raise HTTPException(404, "Not found")
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+
+    root = Path(__file__).resolve().parent.parent
+    cfg = Config(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "alembic"))
+    command.upgrade(cfg, "head")
+    database._postgis = None  # re-detect PostGIS now that the geometry columns exist
+    import seed  # backend/seed.py; only loads data into an empty database
+
+    seeded = seed.seed()
+    return {"migrated": True, "seeded": seeded, "postgis": has_postgis()}
