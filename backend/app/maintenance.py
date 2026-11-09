@@ -28,6 +28,7 @@ def purge(dry_run: bool = False) -> dict:
             if not dry_run:
                 (Path(s.upload_dir) / r.photo_path).unlink(missing_ok=True)
                 r.photo_path = None
+                r.photo_data = None
         for r in db.scalars(select(CommunityReport).where(CommunityReport.ip_hash.isnot(None), CommunityReport.created_at < now - timedelta(days=s.retention_ip_hash_days))):
             ips += 1
             if not dry_run:

@@ -17,6 +17,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -222,6 +223,9 @@ class CommunityReport(TimestampMixin, Base):
     observed_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text)
     photo_path: Mapped[str | None] = mapped_column(String(300))
+    # Re-encoded JPEG (EXIF stripped). Kept in the database so serverless hosts with no
+    # persistent disk (e.g. Vercel) keep photos; deferred so list queries never load it.
+    photo_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     photo_ai_detections: Mapped[int | None] = mapped_column(Integer)
 
     verification_status: Mapped[str] = mapped_column(String(30), default="received", nullable=False, index=True)

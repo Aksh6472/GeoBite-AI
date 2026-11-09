@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from PIL import Image, UnidentifiedImageError
 from pydantic import ValidationError
 from sqlalchemy import func, select
@@ -31,7 +31,7 @@ settings = get_settings()
 reviewers = require_roles("super_admin", "medical_admin", "veterinary_officer", "municipal_officer")
 
 
-def _save_photo(upload: UploadFile) -> str:
+def _encode_photo(upload: UploadFile) -> bytes:
     raw = upload.file.read(settings.max_upload_mb * 1024 * 1024 + 1)
     if len(raw) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(413, f"Photo exceeds {settings.max_upload_mb} MB")
@@ -45,11 +45,9 @@ def _save_photo(upload: UploadFile) -> str:
         raise HTTPException(422, "Only JPEG, PNG or WEBP photos are accepted")
     img = img.convert("RGB")
     img.thumbnail((1600, 1600))
-    folder = Path(settings.upload_dir) / "community"
-    folder.mkdir(parents=True, exist_ok=True)
-    name = f"{secrets.token_hex(16)}.jpg"
-    img.save(folder / name, "JPEG", quality=85)  # re-encoding strips EXIF (incl. GPS) metadata
-    return f"community/{name}"
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=85)  # re-encoding strips EXIF (incl. GPS) metadata
+    return out.getvalue()
 
 
 @router.post("/reports", status_code=201)
@@ -90,7 +88,8 @@ def submit_report(
         consent_given=True, contact_email=body.contact_email, ip_hash=ip_h, content_hash=fp,
     )
     if photo is not None and photo.filename:
-        r.photo_path = _save_photo(photo)
+        r.photo_data = _encode_photo(photo)
+        r.photo_path = f"db/{secrets.token_hex(16)}.jpg"
     r.dog_observation = DogObservation(**body.dogs.model_dump())
     r.behaviours = [BehaviourObservation(category=b.category, description=b.description) for b in body.behaviours]
     db.add(r)
@@ -217,6 +216,9 @@ def report_photo(report_id: int, db: Session = Depends(get_db), user: User = Dep
     r = db.get(CommunityReport, report_id)
     if not r or not r.photo_path:
         raise HTTPException(404, "No photo")
+    if r.photo_data:
+        return Response(r.photo_data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
+    # Photos uploaded before they were stored in the database live on disk.
     path = (Path(settings.upload_dir) / r.photo_path).resolve()
     if not str(path).startswith(str(Path(settings.upload_dir).resolve())) or not path.exists():
         raise HTTPException(404, "No photo")
