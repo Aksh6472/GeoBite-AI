@@ -1,17 +1,31 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "services": {
     "web": {
-      "root": "frontend/"
+      "root": "frontend/",
+      "framework": "nextjs"
     },
     "api": {
       "root": "backend/",
+      "framework": "fastapi",
       "entrypoint": "app.main:app"
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": { "service": "api" } },
-    { "source": "/(.*)", "destination": { "service": "web" } }
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
   ]
 }
