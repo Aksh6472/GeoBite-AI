@@ -1,5 +1,18 @@
 # Deployment
 
+## Live on Vercel (current)
+
+`vercel.json` deploys one Vercel project with two **Services** on the same domain: `frontend/` (Next.js) and `backend/` (FastAPI, `app.main:app`). Requests to `/api/*` go to FastAPI; everything else goes to Next.js, so the auth cookie stays first-party. The database is **Neon Postgres** (Vercel Marketplace, connected with prefix `DATABASE`, so the app reads `DATABASE_URL`). Community photos are stored in Postgres because Vercel has no persistent disk.
+
+Project environment variables: `ENVIRONMENT=production`, `JWT_SECRET`, `IP_HASH_SALT`, `COOKIE_SECURE=true`, `TRUST_PROXY=true`, `CORS_ORIGINS=<site URL>`, plus `DATABASE_URL` from Neon.
+
+**Migrations and seed** (no shell on Vercel): call the protected bootstrap endpoint after a deploy that adds a migration. It is idempotent and only seeds an empty database.
+```bash
+TOKEN=$(python3 -c "import hmac,hashlib,os;print(hmac.new(os.environ['JWT_SECRET'].encode(),b'geobite-bootstrap',hashlib.sha256).hexdigest())")
+curl -X POST https://<site>/api/system/bootstrap -H "X-Bootstrap-Token: $TOKEN"
+```
+Every `git push` to `main` redeploys. Limits: the in-memory rate limiter is per function instance, and Hobby plans are for non-commercial use.
+
 ## Go live on Render (recommended, one-click Blueprint)
 
 The repository includes `render.yaml`, which creates:
