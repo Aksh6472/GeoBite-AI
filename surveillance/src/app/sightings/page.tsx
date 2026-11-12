@@ -71,7 +71,7 @@ export default function SightingsPage() {
                     : <div className="grid size-11 place-items-center rounded-md bg-canvas"><Dog className="size-4 text-muted" /></div>}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2">{fmtDateTime(s.at)}</td>
-                <td className="px-4 py-2"><Badge tone={SOURCE[s.source].tone}>{SOURCE[s.source].label}</Badge></td>
+                <td className="px-4 py-2"><Badge tone={SOURCE[s.source].tone}>{SOURCE[s.source].label}</Badge>{s.demo && <Badge tone="yellow" className="ml-1">demo</Badge>}</td>
                 <td className="px-4 py-2">{s.label}{s.trackId ? <span className="text-muted"> · dog #{s.trackId}</span> : null}</td>
                 <td className="px-4 py-2"><a className="font-mono text-xs text-navy-600 hover:underline" href={`https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lng}#map=19/${s.lat}/${s.lng}`} target="_blank" rel="noreferrer">{fmtLatLng(s.lat, s.lng)}</a></td>
                 <td className="px-4 py-2 font-mono">{Math.round(s.score * 100)}%</td>

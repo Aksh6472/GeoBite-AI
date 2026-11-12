@@ -90,6 +90,25 @@ function AddCamera({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** Sample cameras have no video: show their most recent sample dogs instead. */
+function DemoFeed({ camId }: { camId: string }) {
+  const all = useSightings();
+  const recent = useMemo(() => all.filter((s) => s.cameraId === camId).slice(0, 6), [all, camId]);
+  return (
+    <div className="relative aspect-video overflow-hidden rounded-lg bg-navy-950">
+      <div className="grid size-full grid-cols-3 grid-rows-2 gap-0.5 opacity-80">
+        {recent.map((s) => s.thumb
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img key={s.id} src={s.thumb} alt="" className="size-full object-cover" />
+          : <div key={s.id} className="bg-navy-900" />)}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-6 text-[12px] text-white">
+        Sample camera: no live feed. Showing its latest demo sightings{recent[0] ? `, last at ${new Date(recent[0].at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}` : ""}.
+      </div>
+    </div>
+  );
+}
+
 function CameraCard({ cam, running, onToggle }: { cam: CameraCfg; running: boolean; onToggle: () => void }) {
   const [stats, setStats] = useState<CamStats>({ inView: 0, unique: 0, lastSeen: null, fps: 0 });
   const all = useSightings();
@@ -99,17 +118,19 @@ function CameraCard({ cam, running, onToggle }: { cam: CameraCfg; running: boole
       <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-[14px] font-semibold text-ink">{cam.name}</p>
-          <p className="truncate text-xs text-muted">{KIND_LABEL[cam.kind].split(" (")[0]} · {cam.lat.toFixed(4)}, {cam.lng.toFixed(4)}</p>
+          <p className="truncate text-xs text-muted">{cam.demo ? "Sample camera" : KIND_LABEL[cam.kind].split(" (")[0]} · {cam.lat.toFixed(4)}, {cam.lng.toFixed(4)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {running && stats.inView > 0 ? <Badge tone="orange"><Dog className="size-3" />{stats.inView} in view</Badge> : running ? <Badge tone="teal">watching</Badge> : <Badge>stopped</Badge>}
-          <Button size="sm" variant={running ? "secondary" : "teal"} onClick={onToggle} aria-label={running ? "Stop" : "Start"}>{running ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}</Button>
+          {cam.demo ? <Badge tone="yellow">demo</Badge> : running && stats.inView > 0 ? <Badge tone="orange"><Dog className="size-3" />{stats.inView} in view</Badge> : running ? <Badge tone="teal">watching</Badge> : <Badge>stopped</Badge>}
+          {!cam.demo && <Button size="sm" variant={running ? "secondary" : "teal"} onClick={onToggle} aria-label={running ? "Stop" : "Start"}>{running ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}</Button>}
           <Button size="sm" variant="ghost" aria-label="Remove camera" onClick={() => { if (confirm(`Remove “${cam.name}”? Its past sightings stay in the log.`)) cameras.remove(cam.id); }}><Trash2 className="size-3.5" /></Button>
         </div>
       </div>
-      <div className="p-3"><LiveCamera key={running ? "on" : "off"} cam={cam} running={running} onStats={setStats} /></div>
+      <div className="p-3">
+        {cam.demo ? <DemoFeed camId={cam.id} /> : <LiveCamera key={running ? "on" : "off"} cam={cam} running={running} onStats={setStats} />}
+      </div>
       <div className="grid grid-cols-3 gap-px border-t border-line bg-line text-center">
-        {[["Dogs this session", stats.unique], ["Logged in 24 h", today], ["Detector speed", running ? `${stats.fps.toFixed(1)} fps` : "-"]].map(([k, v]) => (
+        {(cam.demo ? [["Logged in 24 h", today], ["Most at once", Math.max(0, ...all.filter((x) => x.cameraId === cam.id).slice(0, 200).map((x) => x.inView ?? 1))], ["Feed", "sample"]] : [["Dogs this session", stats.unique], ["Logged in 24 h", today], ["Detector speed", running ? `${stats.fps.toFixed(1)} fps` : "-"]]).map(([k, v]) => (
           <div key={k} className="bg-white px-2 py-2.5"><p className="text-[11px] text-muted">{k}</p><p className="font-mono text-[15px] font-semibold text-navy-900">{v}</p></div>
         ))}
       </div>
@@ -129,6 +150,7 @@ export default function CamerasPage() {
   const [adding, setAdding] = useState(false);
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const runCount = list.filter((c) => running[c.id]).length;
+  const realCams = list.filter((c) => !c.demo);
   const today = all.filter((s) => s.source === "camera" && inWindow(s.at, "24h"));
 
   return (
@@ -136,11 +158,11 @@ export default function CamerasPage() {
       <PageHeader
         title="Live cameras"
         subtitle="Connect any camera and StrayWatch watches it for dogs. Each dog is tracked across frames so it is counted once, then logged with the camera's location. Keep this page open while monitoring: detection stops when you leave it or close the tab."
-        actions={<><ModelSelect />{list.length > 0 && <Button variant="secondary" onClick={() => setRunning(runCount ? {} : Object.fromEntries(list.map((c) => [c.id, true])))}>{runCount ? <><Pause className="size-4" />Stop all</> : <><Play className="size-4" />Start all</>}</Button>}<Button onClick={() => setAdding(true)}><Plus className="size-4" />Add camera</Button></>}
+        actions={<><ModelSelect />{realCams.length > 0 && <Button variant="secondary" onClick={() => setRunning(runCount ? {} : Object.fromEntries(realCams.map((c) => [c.id, true])))}>{runCount ? <><Pause className="size-4" />Stop all</> : <><Play className="size-4" />Start all</>}</Button>}<Button onClick={() => setAdding(true)}><Plus className="size-4" />Add camera</Button></>}
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Cameras" value={list.length} icon={Cctv} hint={`${runCount} watching now`} />
+        <Stat label="Cameras" value={list.length} icon={Cctv} hint={`${runCount} watching now${list.length > realCams.length ? ` · ${list.length - realCams.length} demo` : ""}`} />
         <Stat label="Dogs logged (24 h)" value={today.length} icon={Dog} tone="orange" hint="one per dog track" />
         <Stat label="Most at once (24 h)" value={Math.max(0, ...today.map((s) => s.inView ?? 1))} icon={Video} tone="teal" hint="largest group seen together" />
         <Stat label="Cameras with dogs (24 h)" value={new Set(today.map((s) => s.cameraId)).size} icon={Cctv} tone="sage" />

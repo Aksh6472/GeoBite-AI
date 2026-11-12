@@ -4,6 +4,10 @@ A standalone website for monitoring an area for street dogs. It finds dogs autom
 
 Detection runs entirely in the viewer's browser (TensorFlow.js, COCO-SSD). Video and photos are never uploaded. Sightings are saved in that browser's local storage; there is no server or database.
 
+## Demo data
+
+On a first visit with nothing saved, StrayWatch loads demo data so every page shows a working example: 8 sample cameras at real Chennai locations (Pondy Bazaar, Tondiarpet fish market, Kasimedu harbour and others), about 2,000 sightings over 14 days with dawn and dusk peaks, 3 drone-photo scans and 2 satellite scans. Every sample record is flagged `demo` and marked in the UI. **Remove demo data** in the yellow banner deletes them all and keeps real detections. Generator: [`src/lib/demo.ts`](src/lib/demo.ts).
+
 ## Run
 
 ```bash

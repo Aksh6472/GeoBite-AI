@@ -1,9 +1,10 @@
 "use client";
 
-import { Cctv, Crosshair, Dog, ImageUp, MapPin, Satellite, X } from "lucide-react";
+import { Cctv, Crosshair, Dog, FlaskConical, ImageUp, MapPin, Satellite, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CHART, XYChart } from "@/components/charts";
 import { DogMap, Legend, RECENCY_LEGEND } from "@/components/map";
+import { seedDemo } from "@/components/Shell";
 import { Button, Card, CardHeader, Empty, LinkButton, PageHeader, Stat } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 import { areaEstimate, distanceM, inWindow, type LatLng, WINDOW_LABEL, type WindowKey } from "@/lib/geo";
@@ -63,6 +64,7 @@ export default function DogMapPage() {
         <Card>
           <Empty title="Nothing monitored yet" icon={Dog}>
             Start with any of these. Results appear on this map automatically.
+            <div className="mt-4"><Button variant="secondary" onClick={seedDemo}><FlaskConical className="size-4" />Show demo data instead</Button></div>
           </Empty>
           <div className="grid gap-px border-t border-line bg-line md:grid-cols-3">
             {[

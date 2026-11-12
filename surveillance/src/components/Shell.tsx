@@ -1,11 +1,12 @@
 "use client";
 
-import { Cctv, ListChecks, Map as MapIcon, Menu, Satellite, ScanEye, X } from "lucide-react";
+import { Cctv, FlaskConical, ListChecks, Map as MapIcon, Menu, Satellite, ScanEye, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { generateDemo } from "@/lib/demo";
 import { inWindow } from "@/lib/geo";
-import { useCameras, useSightings } from "@/lib/store";
+import { loadDemo, removeDemo, shouldAutoSeed, useCameras, useSightings } from "@/lib/store";
 import { cx } from "./ui";
 
 const NAV = [
@@ -41,7 +42,27 @@ function StatusLine() {
   );
 }
 
+export const seedDemo = () => loadDemo(generateDemo());
+
+function DemoBanner() {
+  const s = useSightings();
+  const cams = useCameras();
+  const demo = s.filter((x) => x.demo).length;
+  if (!demo) return null;
+  const real = s.length - demo;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-900 md:px-6">
+      <FlaskConical className="size-4 shrink-0" />
+      <span className="flex-1"><strong className="font-semibold">Demo data is shown.</strong> {cams.filter((c) => c.demo).length} sample cameras in Chennai and {demo.toLocaleString("en-IN")} sample sightings, so you can see how StrayWatch works.{real ? ` Your ${real} real sighting${real === 1 ? " is" : "s are"} kept.` : ""}</span>
+      <button onClick={seedDemo} className="font-medium underline-offset-2 hover:underline">Refresh demo</button>
+      <button onClick={() => removeDemo()} className="rounded-md bg-amber-900 px-2.5 py-1 font-medium text-white hover:bg-amber-800">Remove demo data</button>
+    </div>
+  );
+}
+
 export function Shell({ children }: { children: React.ReactNode }) {
+  // First visit with nothing saved: show a populated example instead of empty pages.
+  useEffect(() => { if (shouldAutoSeed()) seedDemo(); }, []);
   const path = usePathname();
   const [drawer, setDrawer] = useState(false);
   const isActive = (n: (typeof NAV)[number]) => (n.exact ? path === n.href : path === n.href || path.startsWith(n.href + "/"));
@@ -79,6 +100,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="lg:hidden"><Logo compact /></div>
           <StatusLine />
         </header>
+        <DemoBanner />
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
       </div>
     </div>

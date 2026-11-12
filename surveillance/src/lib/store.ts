@@ -14,18 +14,18 @@ export type SourceKind = "device" | "file" | "stream" | "image";
 export type CameraCfg = {
   id: string; name: string; kind: SourceKind;
   url?: string; deviceId?: string; refreshMs?: number;
-  lat: number; lng: number; threshold: number; createdAt: string;
+  lat: number; lng: number; threshold: number; createdAt: string; demo?: boolean;
 };
 export type SightingSource = "camera" | "satellite" | "aerial";
 export type Sighting = {
   id: string; at: string; source: SightingSource; label: string;
   lat: number; lng: number; score: number;
-  cameraId?: string; trackId?: number; inView?: number; scanId?: string; thumb?: string;
+  cameraId?: string; trackId?: number; inView?: number; scanId?: string; thumb?: string; demo?: boolean;
 };
 export type Scan = {
   id: string; at: string; kind: "satellite" | "aerial"; label: string;
   lat: number; lng: number; bounds?: [[number, number], [number, number]];
-  dogs: number; widthPx: number; heightPx: number; metresPerPx?: number;
+  dogs: number; widthPx: number; heightPx: number; metresPerPx?: number; demo?: boolean;
 };
 
 const KEYS = { cameras: "straywatch:v1:cameras", sightings: "straywatch:v1:sightings", scans: "straywatch:v1:scans" } as const;
@@ -118,6 +118,33 @@ export const scans = {
   },
   update(id: string, patch: Partial<Scan>) { write("scans", read("scans").map((s) => (s.id === id ? { ...s, ...patch } : s))); },
 };
+
+/* ---------------------------------------------------------------- demo data */
+const DEMO_FLAG = "straywatch:v1:demo-seeded";
+
+/** Add sample records (all flagged `demo`). Real records are kept. */
+export function loadDemo(d: { cameras: CameraCfg[]; sightings: Sighting[]; scans: Scan[] }) {
+  removeDemo();
+  const byTime = <T extends { at: string }>(a: T, b: T) => b.at.localeCompare(a.at);
+  write("cameras", [...read("cameras"), ...d.cameras]);
+  write("scans", [...read("scans"), ...d.scans].sort(byTime));
+  write("sightings", [...read("sightings"), ...d.sightings].sort(byTime));
+  try { localStorage.setItem(DEMO_FLAG, "1"); } catch { /* ignore */ }
+}
+/** Remove every sample record and leave real detections untouched. */
+export function removeDemo() {
+  write("cameras", read("cameras").filter((c) => !c.demo));
+  write("scans", read("scans").filter((s) => !s.demo));
+  write("sightings", read("sightings").filter((s) => !s.demo));
+}
+/** True the first time this browser opens the site with nothing saved. */
+export function shouldAutoSeed() {
+  try {
+    return !localStorage.getItem(DEMO_FLAG) && !read("cameras").length && !read("sightings").length && !read("scans").length;
+  } catch {
+    return false;
+  }
+}
 
 export function exportAll() {
   return JSON.stringify({ app: "straywatch", version: 1, exportedAt: new Date().toISOString(), cameras: read("cameras"), sightings: read("sightings"), scans: read("scans") }, null, 1);
