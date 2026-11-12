@@ -11,6 +11,14 @@ Both portals write to one PostgreSQL/PostGIS database. A third portal, the **int
 
 > **Research prototype. All demonstration data is synthetic.** Real hospital data should be integrated only after institutional ethics approval and formal data-sharing agreements. The platform supports, and does not replace, medical and veterinary judgement.
 
+## StrayWatch: street dog monitoring (separate website)
+
+[`surveillance/`](surveillance/README.md) is a standalone Next.js site (port 3001) for finding street dogs in an area. It runs real dog detection in the browser on live cameras (webcam, phone, CCTV/NVR streams, video files), satellite imagery and drone photos, and maps every sighting:
+
+```bash
+cd surveillance && npm install && npm run dev   # http://localhost:3001
+```
+
 ---
 
 ## Quick start
