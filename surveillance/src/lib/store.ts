@@ -121,6 +121,7 @@ export const scans = {
 
 /* ---------------------------------------------------------------- demo data */
 const DEMO_FLAG = "straywatch:v1:demo-seeded";
+const DEMO_VERSION = "2"; // bump when the sample data changes so existing visitors get the new set
 
 /** Add sample records (all flagged `demo`). Real records are kept. */
 export function loadDemo(d: { cameras: CameraCfg[]; sightings: Sighting[]; scans: Scan[] }) {
@@ -129,7 +130,7 @@ export function loadDemo(d: { cameras: CameraCfg[]; sightings: Sighting[]; scans
   write("cameras", [...read("cameras"), ...d.cameras]);
   write("scans", [...read("scans"), ...d.scans].sort(byTime));
   write("sightings", [...read("sightings"), ...d.sightings].sort(byTime));
-  try { localStorage.setItem(DEMO_FLAG, "1"); } catch { /* ignore */ }
+  try { localStorage.setItem(DEMO_FLAG, DEMO_VERSION); } catch { /* ignore */ }
 }
 /** Remove every sample record and leave real detections untouched. */
 export function removeDemo() {
@@ -137,10 +138,15 @@ export function removeDemo() {
   write("scans", read("scans").filter((s) => !s.demo));
   write("sightings", read("sightings").filter((s) => !s.demo));
 }
-/** True the first time this browser opens the site with nothing saved. */
+/**
+ * True the first time this browser opens the site with nothing saved, or when it still shows
+ * an older version of the demo. Someone who removed the demo is never re-seeded.
+ */
 export function shouldAutoSeed() {
   try {
-    return !localStorage.getItem(DEMO_FLAG) && !read("cameras").length && !read("sightings").length && !read("scans").length;
+    const v = localStorage.getItem(DEMO_FLAG);
+    if (!v) return !read("cameras").length && !read("sightings").length && !read("scans").length;
+    return v !== DEMO_VERSION && read("sightings").some((s) => s.demo);
   } catch {
     return false;
   }

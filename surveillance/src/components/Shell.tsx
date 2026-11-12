@@ -53,7 +53,7 @@ function DemoBanner() {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-900 md:px-6">
       <FlaskConical className="size-4 shrink-0" />
-      <span className="flex-1"><strong className="font-semibold">Demo data is shown.</strong> {cams.filter((c) => c.demo).length} sample cameras in Chennai and {demo.toLocaleString("en-IN")} sample sightings, so you can see how StrayWatch works.{real ? ` Your ${real} real sighting${real === 1 ? " is" : "s are"} kept.` : ""}</span>
+      <span className="flex-1"><strong className="font-semibold">Demo data is shown.</strong> {cams.filter((c) => c.demo).length} sample cameras in Chennai and {demo.toLocaleString("en-IN")} sample sightings, so you can see how StrayWatch works. Photos are real street dogs from Wikimedia Commons (<Link href="/credits" className="underline underline-offset-2">credits</Link>), not taken at these cameras.{real ? ` Your ${real} real sighting${real === 1 ? " is" : "s are"} kept.` : ""}</span>
       <button onClick={seedDemo} className="font-medium underline-offset-2 hover:underline">Refresh demo</button>
       <button onClick={() => removeDemo()} className="rounded-md bg-amber-900 px-2.5 py-1 font-medium text-white hover:bg-amber-800">Remove demo data</button>
     </div>
@@ -81,6 +81,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </ul>
       <div className="border-t border-white/10 p-4 text-[11.5px] leading-relaxed text-navy-300">
         Detection runs on this device. Video and photos are never uploaded; sightings are saved in this browser only.
+        <Link href="/credits" onClick={() => setDrawer(false)} className="mt-2 block text-navy-200 hover:text-white">Photo &amp; data credits</Link>
       </div>
     </nav>
   );

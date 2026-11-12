@@ -3,10 +3,13 @@
  *
  * Eight sample cameras at real Chennai locations (the same wards the GeoBite-AI seed uses),
  * two weeks of dog sightings with the morning and evening peaks street dogs show, plus drone
- * photo and satellite scans. Every record is flagged `demo` and is removed in one click.
+ * photo and satellite scans. Pictures are real street-dog photos from Wikimedia Commons
+ * (see demoPhotos.ts), but they were not taken at these cameras. Every record is flagged
+ * `demo` and is removed in one click.
  * Times are generated relative to now, so "last 24 hours" always has data.
  */
 
+import { DEMO_PHOTOS } from "./demoPhotos";
 import type { CameraCfg, Scan, Sighting } from "./store";
 
 function mulberry32(seed: number) {
@@ -33,18 +36,12 @@ const CAMERAS: { name: string; lat: number; lng: number; rate: number; pack: num
 /** Relative activity by hour of day: dogs are most active at dawn and after dusk. */
 const HOURLY = [0.6, 0.45, 0.35, 0.35, 0.6, 1.3, 1.9, 2.0, 1.6, 1.0, 0.7, 0.5, 0.35, 0.3, 0.35, 0.45, 0.7, 1.1, 1.6, 1.9, 1.8, 1.4, 1.0, 0.8];
 
-const COATS = ["#6b4f2f", "#a07a4f", "#c9a477", "#3b2f25", "#2a2a2a", "#e8dcc6", "#8c5a2b"];
-const GROUNDS = ["#7d8188", "#8f8a7e", "#6f7a72", "#9a9184"];
-
-/** Small drawn picture of a dog so demo sightings have a thumbnail. */
-function dogThumb(r: () => number) {
-  const coat = COATS[Math.floor(r() * COATS.length)], ground = GROUNDS[Math.floor(r() * GROUNDS.length)];
-  const flip = r() < 0.5 ? -1 : 1, lying = r() < 0.3;
-  const body = lying
-    ? `<ellipse cx="46" cy="62" rx="26" ry="10" fill="${coat}"/><ellipse cx="73" cy="60" rx="9" ry="7" fill="${coat}"/><ellipse cx="83" cy="63" rx="7" ry="4" fill="${coat}"/><circle cx="89" cy="62" r="1.8" fill="#111"/><path d="M68 55q-4 2-2 10q4-2 5-8z" fill="#00000055"/><path d="M20 64q-6 6 4 8" stroke="${coat}" stroke-width="4" fill="none" stroke-linecap="round"/>`
-    : `<rect x="28" y="58" width="5" height="20" rx="2" fill="${coat}"/><rect x="38" y="58" width="5" height="20" rx="2" fill="${coat}"/><rect x="56" y="58" width="5" height="20" rx="2" fill="${coat}"/><rect x="65" y="58" width="5" height="20" rx="2" fill="${coat}"/><ellipse cx="48" cy="54" rx="25" ry="11" fill="${coat}"/><path d="M66 50q4-12 10-12" stroke="${coat}" stroke-width="9" fill="none" stroke-linecap="round"/><ellipse cx="77" cy="38" rx="8" ry="7" fill="${coat}"/><ellipse cx="86" cy="41" rx="7" ry="4" fill="${coat}"/><circle cx="92" cy="40" r="1.8" fill="#111"/><path d="M71 33q-4 2-3 11q4-2 5-9z" fill="#00000055"/><path d="M24 50q-10 2-13-8" stroke="${coat}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" fill="${ground}"/><rect y="70" width="96" height="26" fill="#00000022"/><g transform="translate(${flip < 0 ? 96 : 0} 0) scale(${flip} 1)">${body}</g><rect x="6" y="${lying ? 40 : 28}" width="84" height="${lying ? 36 : 54}" fill="none" stroke="#ffb020" stroke-width="2.5"/></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+/** Real dog photo for a demo sighting. Each camera has its own regulars, plus the odd newcomer. */
+function photoFor(cam: number, r: () => number) {
+  const n = DEMO_PHOTOS.length;
+  const own = DEMO_PHOTOS.filter((_, i) => i % CAMERAS.length === cam);
+  const p = r() < 0.8 && own.length ? own[Math.floor(r() * own.length)] : DEMO_PHOTOS[Math.floor(r() * n)];
+  return p.src;
 }
 
 /** Poisson sample (small means). */
@@ -83,7 +80,7 @@ export function generateDemo(now = Date.now(), days = 14) {
         sightings.push({
           id: `demo-s-${i}-${track}`, at: iso(at), source: "camera", label: c.name, cameraId: cameras[i].id,
           lat: c.lat, lng: c.lng, score: Math.round((0.55 + r() * 0.4) * 100) / 100, trackId: track++,
-          inView: Math.max(1, Math.min(c.pack, 1 + poisson(c.pack * 0.35, r))), demo: true,
+          inView: Math.max(1, Math.min(c.pack, 1 + poisson(c.pack * 0.35, r))), thumb: photoFor(i, r), demo: true,
         });
       }
     }
@@ -100,7 +97,7 @@ export function generateDemo(now = Date.now(), days = 14) {
     const at = now - dAgo * 86400e3 - 3 * 3600e3;
     const id = `demo-scan-a-${scans.length}`;
     scans.push({ id, at: iso(at), kind: "aerial", label, lat, lng, dogs, widthPx: 4000, heightPx: 3000, demo: true });
-    for (let k = 0; k < dogs; k++) sightings.push({ id: `${id}-${k}`, at: iso(at), source: "aerial", label, lat, lng, score: Math.round((0.6 + r() * 0.35) * 100) / 100, scanId: id, demo: true });
+    for (let k = 0; k < dogs; k++) sightings.push({ id: `${id}-${k}`, at: iso(at), source: "aerial", label, lat, lng, score: Math.round((0.6 + r() * 0.35) * 100) / 100, scanId: id, thumb: photoFor(Math.floor(r() * CAMERAS.length), r), demo: true });
   }
   const sat: [number, number, number, number][] = [[5, 13.0063, 80.2574, 1], [3, 12.979, 80.221, 0]];
   for (const [dAgo, lat, lng, dogs] of sat) {
@@ -114,7 +111,5 @@ export function generateDemo(now = Date.now(), days = 14) {
   }
 
   sightings.sort((a, b) => b.at.localeCompare(a.at));
-  // Pictures on the most recent sightings only (the store keeps thumbnails for the newest 400).
-  sightings.slice(0, 160).forEach((s) => { s.thumb = dogThumb(r); });
   return { cameras, sightings, scans };
 }

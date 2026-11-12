@@ -6,7 +6,7 @@ Detection runs entirely in the viewer's browser (TensorFlow.js, COCO-SSD). Video
 
 ## Demo data
 
-On a first visit with nothing saved, StrayWatch loads demo data so every page shows a working example: 8 sample cameras at real Chennai locations (Pondy Bazaar, Tondiarpet fish market, Kasimedu harbour and others), about 2,000 sightings over 14 days with dawn and dusk peaks, 3 drone-photo scans and 2 satellite scans. Every sample record is flagged `demo` and marked in the UI. **Remove demo data** in the yellow banner deletes them all and keeps real detections. Generator: [`src/lib/demo.ts`](src/lib/demo.ts).
+On a first visit with nothing saved, StrayWatch loads demo data so every page shows a working example: 8 sample cameras at real Chennai locations (Pondy Bazaar, Tondiarpet fish market, Kasimedu harbour and others), about 2,000 sightings over 14 days with dawn and dusk peaks, 3 drone-photo scans and 2 satellite scans. Sighting pictures are 46 real photos of free-ranging dogs in India from Wikimedia Commons (CC0, CC BY and CC BY-SA), each checked by the dog detector and cropped around the dog; they were not taken at the sample cameras. Credits and licences are listed at `/credits` and in [`src/lib/demoPhotos.ts`](src/lib/demoPhotos.ts). Every sample record is flagged `demo` and marked in the UI. **Remove demo data** in the yellow banner deletes them all and keeps real detections. Generator: [`src/lib/demo.ts`](src/lib/demo.ts).
 
 ## Run
 
