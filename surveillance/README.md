@@ -25,7 +25,7 @@ Production: `npm run build && npm start`. The camera and location features need 
 | `/` Dog map | All sightings on a map, coloured by how recent they are. Click anywhere and choose a radius to count the dogs in that area over the last hour, day, week or month. |
 | `/bites` Bites & dogs | Reported dog bites per ward (from GeoBite-AI's public API, forwarded through `/api/geobite/bites`; bundled copy if it is down) next to the dogs StrayWatch has seen within 1.5 km of each ward. Ranks wards by bites, by dogs, and by a combined risk score (60% bites, 40% dogs), and flags bite wards that have no camera. Set `GEOBITE_API_URL` to point at another GeoBite-AI deployment. |
 | `/cameras` Live cameras | Add cameras with their location, then watch them live. Every dog gets a box and a track ID, and each new dog is logged once with a picture. |
-| `/satellite` Satellite & drone scan | Real Esri satellite imagery for any place. **Find dog hotspots here** pulls garbage sites, meat shops, markets, food stalls, vacant land and stations from OpenStreetMap and ranks 200 m squares. **Scan this view** stitches the imagery and runs the detector over it. **Scan a drone photo** counts dogs in an uploaded top-down photo. |
+| `/satellite` Satellite & drone scan | Real Esri satellite imagery for any place, with dog sightings, cameras, bite wards, past scans and dog hotspots drawn on it, and a summary of what is in the current view. Opens on Tondiarpet (the busiest demo area) and looks up hotspots automatically. **Find dog hotspots here** pulls garbage sites, meat shops, markets, food stalls, vacant land and stations from OpenStreetMap and ranks 200 m squares. **Scan this view** stitches the imagery and runs the detector over it. **Scan a drone photo** counts dogs in an uploaded top-down photo. |
 | `/sightings` | Every sighting with picture, time, source and location. Export CSV, back up and import JSON (merges without duplicates), delete. |
 
 ## Camera sources
@@ -54,6 +54,6 @@ On an HTTPS site, browsers block `http://` camera URLs. Use HTTPS on the camera 
 ## Data sources
 
 - Satellite imagery: Esri World Imagery (attribution shown on the map)
-- Hotspot places: OpenStreetMap contributors via the Overpass API (ODbL)
+- Hotspot places: OpenStreetMap contributors via the Overpass API (ODbL). All public mirrors are asked at once, results are cached in the browser for 14 days, and a saved copy for Chennai (`src/lib/osmSnapshot.ts`) is used when every mirror is down
 - Place search: OpenStreetMap Nominatim
 - Detector: TensorFlow.js COCO-SSD (Apache-2.0)

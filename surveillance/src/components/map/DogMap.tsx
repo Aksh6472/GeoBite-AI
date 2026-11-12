@@ -85,15 +85,23 @@ export default function DogMap({
 
       {bites.map((b) => {
         const n = b.bites ?? 0;
-        const color = b.level === "High" ? "#c0392b" : b.level === "Medium" ? "#d9701c" : "#e2b203";
+        // With a risk level (Bites & dogs page) colour by it; otherwise by the bite count alone.
+        const tier = b.level ?? (n >= 15 ? "High" : n >= 8 ? "Medium" : "Low");
+        const color = tier === "High" ? "#c0392b" : tier === "Medium" ? "#d9701c" : "#e2b203";
         return (
           <Circle key={`${b.ward}:${b.district}`} center={[b.lat, b.lng]} radius={b.suppressed ? 250 : 250 + Math.sqrt(n) * 170}
             eventHandlers={onWard ? { click: () => onWard(b.ward) } : undefined}
-            pathOptions={{ color, weight: 1.5, fillColor: color, fillOpacity: b.suppressed ? 0.08 : 0.28, dashArray: b.suppressed ? "4 4" : undefined }}>
+            pathOptions={{ color, fillColor: color, fillOpacity: b.suppressed ? 0.06 : b.level ? 0.28 : 0.1, weight: b.level ? 1.5 : 2.5, dashArray: b.suppressed ? "4 4" : undefined }}>
             <Tooltip><strong>{b.ward}</strong> · {b.district}<br />{b.suppressed ? "Fewer than 3 bites (hidden)" : `${n} dog bite${n === 1 ? "" : "s"} reported`}{b.level ? <><br />Combined risk: {b.level}</> : null}</Tooltip>
           </Circle>
         );
       })}
+
+      {scans.filter((s) => !s.bounds).map((s) => (
+        <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={8} pathOptions={{ color: "#fff", weight: 2, fillColor: "#7c3aed", fillOpacity: 0.95 }}>
+          <Tooltip><strong>{s.label}</strong><br />Drone photo · {fmtDateTime(s.at)}<br />{s.dogs} dog{s.dogs === 1 ? "" : "s"} found</Tooltip>
+        </CircleMarker>
+      ))}
 
       {area && <Circle center={area.center} radius={area.radiusM} pathOptions={{ color: "#0e1f38", weight: 2, dashArray: "6 5", fillColor: "#1a9a8a", fillOpacity: 0.08 }} />}
 

@@ -1,24 +1,31 @@
 "use client";
 
 import type { Map as LMap } from "leaflet";
-import { Info, Loader2, MapPin, Satellite, ScanSearch, Search } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { Cctv, Dog, ImageUp, Info, Loader2, MapPin, Satellite, ScanSearch, Search, Siren } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AerialScan } from "@/components/AerialScan";
 import { DogMap, Legend, Toggle } from "@/components/map";
 import { SAT_URL } from "@/components/map/tiles";
 import { ModelSelect } from "@/components/ModelSelect";
 import { ScanResult } from "@/components/ScanResult";
-import { Badge, Button, Card, CardHeader, ErrorBanner, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, Empty, ErrorBanner, PageHeader, Stat } from "@/components/ui";
+import { type BiteData, fetchBites } from "@/lib/bites";
+import { fmtDateTime } from "@/lib/format";
 import { type Box, detectTiled, loadDetector, thumbnail } from "@/lib/detector";
-import { type LatLng, latToPx, lngToPx, metresPerPx, pxToLat, pxToLng, TILE } from "@/lib/geo";
-import { ATTRACTOR_META, type Attractor, type AttractorKind, fetchAttractors } from "@/lib/osm";
-import { scans as scanStore, sightings, useScans } from "@/lib/store";
+import { areaEstimate, inWindow, type LatLng, latToPx, lngToPx, metresPerPx, pxToLat, pxToLng, TILE } from "@/lib/geo";
+import { ATTRACTOR_META, type Attractor, type AttractorKind, fetchAttractors, snapshotFor } from "@/lib/osm";
+import { scans as scanStore, sightings, useCameras, useScans, useSightings } from "@/lib/store";
 
 const Z = 19;                 // Esri World Imagery's finest level available almost everywhere
 const MAX_PX = 2400 * 1600;   // keep a scan to a few seconds of detection
 const MIN_SCAN_ZOOM = 17;
 
 type View = { zoom: number; s: number; w: number; n: number; e: number; c: LatLng };
+type Bounds = { s: number; w: number; n: number; e: number };
+const inView = (v: Bounds | null, lat: number, lng: number) => !!v && lat >= v.s && lat <= v.n && lng >= v.w && lng <= v.e;
+/** Opens on Tondiarpet fish market: the busiest spot in the demo data (dogs, bites and a drone scan). */
+const START: LatLng = [13.1245, 80.2905];
+const MAX_HOTSPOT_AREA = 0.06; // square degrees: about a few wards
 
 function loadTile(x: number, y: number): Promise<HTMLImageElement> {
   return new Promise((res, rej) => {
@@ -51,6 +58,7 @@ export default function SatellitePage() {
   const map = useRef<LMap | null>(null);
   const [view, setView] = useState<View | null>(null);
   const [attractors, setAttractors] = useState<Attractor[]>([]);
+  const [osmSource, setOsmSource] = useState<{ source: string; at: string } | null>(null);
   const [osmBusy, setOsmBusy] = useState(false);
   const [showOsm, setShowOsm] = useState(true);
   const [showScans, setShowScans] = useState(true);
@@ -60,12 +68,53 @@ export default function SatellitePage() {
   const [focus, setFocus] = useState<{ at: LatLng; zoom?: number; key: string } | null>(null);
   const abort = useRef<AbortController | null>(null);
   const pastScans = useScans();
+  const allSightings = useSightings();
+  const cams = useCameras();
   const [search, setSearch] = useState("");
+  const [showDogs, setShowDogs] = useState(true);
+  const [showBites, setShowBites] = useState(true);
+  const [bites, setBites] = useState<BiteData | null>(null);
+  const autoLooked = useRef(false);
+
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetchBites(ctl.signal).then(setBites).catch(() => {});
+    return () => ctl.abort();
+  }, []);
+
+  const lookUp = useCallback(async (b: Bounds) => {
+    if ((b.n - b.s) * (b.e - b.w) > MAX_HOTSPOT_AREA) { setErr("Zoom in to a neighbourhood or a few wards (zoom level 13 or closer) before looking up dog hotspots."); return; }
+    setErr(""); setOsmBusy(true);
+    try {
+      // Show the bundled copy straight away where it exists; live data replaces it when it arrives.
+      const snap = await snapshotFor(b);
+      if (snap) { setAttractors(snap.items); setOsmSource({ source: snap.source, at: snap.at }); }
+      const r = await fetchAttractors(b);
+      setAttractors(r.items);
+      setOsmSource({ source: r.source, at: r.at });
+      setShowOsm(true);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setOsmBusy(false);
+    }
+  }, []);
 
   const onMove = useCallback((m: LMap) => {
     const b = m.getBounds(), c = m.getCenter();
-    setView({ zoom: m.getZoom(), s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast(), c: [c.lat, c.lng] });
-  }, []);
+    const v = { zoom: m.getZoom(), s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast(), c: [c.lat, c.lng] as LatLng };
+    setView(v);
+    // Look up hotspots once for the opening view so the page is never empty.
+    if (!autoLooked.current && v.zoom >= 13) { autoLooked.current = true; lookUp(v); }
+  }, [lookUp]);
+
+  const recent = useMemo(() => allSightings.filter((s) => inWindow(s.at, "30d")), [allSightings]);
+  const here = useMemo(() => {
+    const rows = recent.filter((s) => inView(view, s.lat, s.lng));
+    const sc = pastScans.filter((s) => inView(view, s.lat, s.lng));
+    const wards = (bites?.wards ?? []).filter((w) => inView(view, w.lat, w.lng));
+    return { est: areaEstimate(rows, sc), sightings: rows.length, scans: sc.length, cameras: cams.filter((c) => inView(view, c.lat, c.lng)).length, wards, bites: wards.reduce((n, w) => n + (w.bites ?? 0), 0), hotspots: attractors.filter((a) => inView(view, a.lat, a.lng)).length };
+  }, [recent, pastScans, bites, cams, attractors, view]);
 
   const scanPixels = view ? (lngToPx(view.e, Z) - lngToPx(view.w, Z)) * (latToPx(view.s, Z) - latToPx(view.n, Z)) : 0;
   const mpp = view ? metresPerPx(view.c[0], Z) : 0.3;
@@ -116,19 +165,7 @@ export default function SatellitePage() {
     }
   };
 
-  const findAttractors = async () => {
-    if (!view) return;
-    if ((view.n - view.s) * (view.e - view.w) > 0.06) return setErr("Zoom in to a neighbourhood or a few wards (zoom level 13 or closer) before looking up dog hotspots.");
-    setErr(""); setOsmBusy(true);
-    try {
-      setAttractors(await fetchAttractors(view));
-      setShowOsm(true);
-    } catch (e) {
-      setErr((e as Error).message);
-    } finally {
-      setOsmBusy(false);
-    }
-  };
+  const findAttractors = () => { if (view) lookUp(view); };
 
   const goTo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,11 +212,14 @@ export default function SatellitePage() {
             <Button size="sm" className="h-9" onClick={runScan} disabled={!canScan} title={canScan ? undefined : "Zoom in further to scan"}><ScanSearch className="size-3.5" />Scan this view for dogs</Button>
           )}
         </div>
-        <DogMap basemap="satellite" height="h-[560px]" center={[13.0418, 80.2341]} zoom={16} onReady={(m) => { map.current = m; }} onMove={onMove} focus={focus}
-          attractors={showOsm ? attractors : []} scans={showScans ? pastScans.filter((s) => s.kind === "satellite") : []} dogs={scan?.dogs ?? []} />
+        <DogMap basemap="satellite" height="h-[560px]" center={START} zoom={15} onReady={(m) => { map.current = m; }} onMove={onMove} focus={focus}
+          attractors={showOsm ? attractors : []} scans={showScans ? pastScans : []} dogs={scan?.dogs ?? []}
+          sightings={showDogs ? recent : []} cameras={showDogs ? cams : []} bites={showBites ? bites?.wards ?? [] : []} />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-2.5">
           <div className="flex flex-wrap gap-2">
-            <Toggle on={showOsm} onChange={setShowOsm} label={`Dog hotspots (${attractors.length})`} />
+            <Toggle on={showDogs} onChange={setShowDogs} label="Dogs seen (30 days)" />
+            <Toggle on={showBites} onChange={setShowBites} label="Dog bites" />
+            <Toggle on={showOsm} onChange={setShowOsm} label={`Dog hotspots (${attractors.length})${osmBusy ? "…" : ""}`} />
             <Toggle on={showScans} onChange={setShowScans} label="Past scans" />
           </div>
           <p className="text-xs text-muted">
@@ -187,6 +227,13 @@ export default function SatellitePage() {
               : scanPixels > MAX_PX ? "This view is too large to scan in one go. Zoom in one level."
               : `Ready to scan ~${Math.round(scanPixels / 1e6 * 10) / 10} MP at ${mpp.toFixed(2)} m per pixel.`)}
           </p>
+        </div>
+        <div className="border-t border-line px-4 py-2">
+          <Legend items={[
+            { color: "#d1342f", label: "Dogs seen (size = sightings)" }, { color: "#0e1f38", label: "Camera", ring: true },
+            { color: "#c0392b", label: "Bite ward (size = bites)", square: true }, { color: "#7c3aed", label: "Drone photo" },
+            { color: "#7f9dc6", label: "Satellite scan area", square: true }, { color: "#b45309", label: "Dog hotspot place" },
+          ]} />
         </div>
         {progress && (
           <div className="border-t border-line px-4 py-2.5">
@@ -197,6 +244,13 @@ export default function SatellitePage() {
       </Card>
 
       <div className="mt-4"><ErrorBanner error={err || null} /></div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Dogs in this view" value={here.est.high ? here.est.low : 0} icon={Dog} tone="orange" hint={`most seen at once · ${here.sightings} sightings in 30 days`} />
+        <Stat label="Dog bites in this view" value={bites ? here.bites : "…"} icon={Siren} tone="red" hint={here.wards.length ? here.wards.slice(0, 3).map((w) => w.ward).join(", ") : "no ward centre in view"} />
+        <Stat label="Dog hotspots" value={osmBusy && !attractors.length ? "…" : here.hotspots} icon={MapPin} tone="sage" hint="garbage, meat, markets, food, vacant land" />
+        <Stat label="Cameras & scans" value={`${here.cameras} · ${here.scans}`} icon={Cctv} hint="cameras · satellite and drone scans" />
+      </div>
 
       <div className="mt-4 flex items-start gap-3 rounded-lg border border-navy-100 bg-navy-50 px-4 py-3 text-[13px] text-navy-800">
         <Info className="mt-0.5 size-4 shrink-0" />
@@ -217,7 +271,7 @@ export default function SatellitePage() {
       {attractors.length > 0 && (
         <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1.2fr]">
           <Card>
-            <CardHeader title="Places that draw dogs in this view" subtitle="From OpenStreetMap. These are mapped places, not dog counts." icon={MapPin} />
+            <CardHeader title="Places that draw dogs in this view" subtitle={`From OpenStreetMap${osmSource?.source === "snapshot" ? ` (saved copy from ${fmtDateTime(osmSource.at)}: the live servers are busy)` : osmSource?.source === "cache" ? ` (saved in this browser ${fmtDateTime(osmSource.at)})` : ""}. These are mapped places, not dog counts.`} icon={MapPin} />
             <ul className="divide-y divide-line">
               {(Object.keys(ATTRACTOR_META) as AttractorKind[]).map((k) => (
                 <li key={k} className="flex items-center justify-between gap-3 px-5 py-2.5">
@@ -247,6 +301,23 @@ export default function SatellitePage() {
           </Card>
         </div>
       )}
+
+      <Card className="mt-6">
+        <CardHeader title="Past scans" subtitle="Satellite and drone scans saved in this browser. Click View to fly there." icon={ImageUp} />
+        {pastScans.length === 0 ? <Empty title="No scans yet">Zoom in and press “Scan this view for dogs”, or scan a drone photo below.</Empty> : (
+          <ul className="divide-y divide-line">
+            {pastScans.slice(0, 12).map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-3 px-5 py-2.5">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 text-[13px] font-medium text-ink"><Badge tone={s.kind === "satellite" ? "navy" : "orange"}>{s.kind === "satellite" ? "Satellite" : "Drone photo"}</Badge><span className="truncate">{s.label}</span>{s.demo && <Badge tone="yellow">demo</Badge>}</p>
+                  <p className="mt-0.5 text-xs text-muted">{fmtDateTime(s.at)} · {s.dogs} dog{s.dogs === 1 ? "" : "s"} found{s.metresPerPx ? ` · ${s.metresPerPx.toFixed(2)} m/pixel` : ""}</p>
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => setFocus({ at: [s.lat, s.lng], zoom: s.kind === "satellite" ? 17 : 18, key: s.id + Date.now() })}>View</Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <div id="aerial" className="mt-6 scroll-mt-20"><AerialScan /></div>
     </>
