@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
       "*.css": { loaders: ["@tailwindcss/turbopack"], as: "*.css" },
     },
   },
+  // Bite counts come from the GeoBite-AI platform. Forwarding through this site avoids a
+  // cross-origin request from the browser.
+  async rewrites() {
+    const geobite = process.env.GEOBITE_API_URL || "https://geobite-virid.vercel.app";
+    return [{ source: "/api/geobite/bites", destination: `${geobite}/api/map/public/bites` }];
+  },
   async headers() {
     return [
       {

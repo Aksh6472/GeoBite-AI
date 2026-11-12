@@ -1,6 +1,6 @@
 "use client";
 
-import { Cctv, FlaskConical, ListChecks, Map as MapIcon, Menu, Satellite, ScanEye, X } from "lucide-react";
+import { Cctv, FlaskConical, ListChecks, Map as MapIcon, Menu, Satellite, ScanEye, Siren, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -11,6 +11,7 @@ import { cx } from "./ui";
 
 const NAV = [
   { href: "/", label: "Dog map", icon: MapIcon, exact: true },
+  { href: "/bites", label: "Bites & dogs", icon: Siren },
   { href: "/cameras", label: "Live cameras", icon: Cctv },
   { href: "/satellite", label: "Satellite & drone scan", icon: Satellite },
   { href: "/sightings", label: "Sightings log", icon: ListChecks },

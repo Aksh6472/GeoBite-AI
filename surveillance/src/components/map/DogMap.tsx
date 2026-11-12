@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { Circle, CircleMarker, MapContainer, Rectangle, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { gridCells, type LatLng } from "@/lib/geo";
 import { ATTRACTOR_META, type Attractor } from "@/lib/osm";
+import type { BiteWard } from "@/lib/bites";
 import type { CameraCfg, Scan, Sighting } from "@/lib/store";
 import { fmtDateTime } from "@/lib/format";
 
@@ -17,6 +18,8 @@ export type DogMapProps = {
   basemap?: Basemap; height?: string; center?: LatLng; zoom?: number;
   sightings?: Sighting[]; cameras?: CameraCfg[]; attractors?: Attractor[]; scans?: Scan[];
   dogs?: { lat: number; lng: number; score: number }[];
+  bites?: (BiteWard & { level?: string })[];
+  onWard?: (ward: string) => void;
   area?: { center: LatLng; radiusM: number } | null;
   pin?: LatLng | null;
   onClick?: (p: LatLng) => void; onReady?: (m: LMap) => void; onMove?: (m: LMap) => void;
@@ -57,7 +60,7 @@ const recencyColor = (iso: string) => (age(iso) < 1 ? "#d1342f" : age(iso) < 24 
 
 export default function DogMap({
   basemap = "street", height = "h-[520px]", center = [20.6, 78.9], zoom = 5,
-  sightings = [], cameras = [], attractors = [], scans = [], dogs = [], area, pin,
+  sightings = [], cameras = [], attractors = [], scans = [], dogs = [], bites = [], area, pin, onWard,
   onClick, onReady, onMove, fitKey, focus,
 }: DogMapProps) {
   const cells = gridCells(sightings);
@@ -79,6 +82,18 @@ export default function DogMap({
           <Tooltip>{s.kind === "satellite" ? "Satellite scan" : "Aerial photo"} · {fmtDateTime(s.at)}<br />{s.dogs} dog{s.dogs === 1 ? "" : "s"} found{s.metresPerPx ? ` · ${s.metresPerPx.toFixed(2)} m/pixel` : ""}</Tooltip>
         </Rectangle>
       ))}
+
+      {bites.map((b) => {
+        const n = b.bites ?? 0;
+        const color = b.level === "High" ? "#c0392b" : b.level === "Medium" ? "#d9701c" : "#e2b203";
+        return (
+          <Circle key={`${b.ward}:${b.district}`} center={[b.lat, b.lng]} radius={b.suppressed ? 250 : 250 + Math.sqrt(n) * 170}
+            eventHandlers={onWard ? { click: () => onWard(b.ward) } : undefined}
+            pathOptions={{ color, weight: 1.5, fillColor: color, fillOpacity: b.suppressed ? 0.08 : 0.28, dashArray: b.suppressed ? "4 4" : undefined }}>
+            <Tooltip><strong>{b.ward}</strong> · {b.district}<br />{b.suppressed ? "Fewer than 3 bites (hidden)" : `${n} dog bite${n === 1 ? "" : "s"} reported`}{b.level ? <><br />Combined risk: {b.level}</> : null}</Tooltip>
+          </Circle>
+        );
+      })}
 
       {area && <Circle center={area.center} radius={area.radiusM} pathOptions={{ color: "#0e1f38", weight: 2, dashArray: "6 5", fillColor: "#1a9a8a", fillOpacity: 0.08 }} />}
 
